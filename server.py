@@ -17,7 +17,7 @@ with open("personality.txt","r",encoding="utf-8") as f:
     PERSONALITY = f.read()
 
 # clé API Mistral
-MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
+MISTRAL_API_KEY = os.getenv("PD85t8aUMKTkZGDlAWhOWyxywwYRkSq1")
 
 # ---------------------------
 # transcription audio
