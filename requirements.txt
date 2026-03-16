@@ -1,1 +1,6 @@
-
+fastapi
+uvicorn
+vosk
+soundfile
+requests
+python-multipart
