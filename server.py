@@ -1,15 +1,30 @@
 from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import JSONResponse, FileResponse
 import os
+import threading
 
 from stt import transcribe
 from mistral import ask_mistral
 from tts import generate_tts
+from scheduler import agent_loop
 
 app = FastAPI()
 
 with open("personality.txt","r",encoding="utf-8") as f:
     PERSONALITY = f.read()
+
+
+@app.on_event("startup")
+def start_agent():
+
+    thread = threading.Thread(
+        target=agent_loop,
+        args=(PERSONALITY,),
+        daemon=True
+    )
+
+    thread.start()
+
 
 @app.post("/voice")
 async def voice(file: UploadFile = File(...)):
@@ -36,4 +51,4 @@ async def voice(file: UploadFile = File(...)):
 
 @app.get("/")
 def home():
-    return {"status":"AI voice server running"}
+    return {"status":"AI voice assistant running"}
