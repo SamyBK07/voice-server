@@ -1,11 +1,10 @@
 from fastapi import FastAPI, UploadFile, File
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse
 import os
 import threading
 
 from stt import transcribe
 from mistral import ask_mistral
-from tts import generate_tts
 from scheduler import agent_loop
 
 app = FastAPI()
@@ -34,19 +33,14 @@ async def voice(file: UploadFile = File(...)):
     with open(audio_path,"wb") as f:
         f.write(await file.read())
 
-    # STT
     text = transcribe(audio_path)
 
-    # LLM
     reply = ask_mistral(text, PERSONALITY)
 
-    # TTS
-    audio_reply = generate_tts(reply)
-
-    return FileResponse(
-        audio_reply,
-        media_type="audio/wav"
-    )
+    return JSONResponse({
+        "transcript": text,
+        "response": reply
+    })
 
 
 @app.get("/")
