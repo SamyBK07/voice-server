@@ -1,48 +1,69 @@
-from fastapi import FastAPI, UploadFile, File
-from fastapi.responses import JSONResponse
-import os
-import threading
+from fastapi import FastAPI
+from pydantic import BaseModel
 
-from stt import transcribe
 from mistral import ask_mistral
-from scheduler import agent_loop
+from tasks import add_task, load_tasks, save_tasks
+from planner import execute_tasks
 
 app = FastAPI()
 
+# Charger personnalité
 with open("personality.txt","r",encoding="utf-8") as f:
     PERSONALITY = f.read()
 
 
-@app.on_event("startup")
-def start_agent():
-
-    thread = threading.Thread(
-        target=agent_loop,
-        args=(PERSONALITY,),
-        daemon=True
-    )
-
-    thread.start()
+class ChatRequest(BaseModel):
+    message: str
 
 
-@app.post("/voice")
-async def voice(file: UploadFile = File(...)):
+@app.post("/chat")
+def chat(req: ChatRequest):
 
-    audio_path = "input.wav"
+    user_msg = req.message.lower()
 
-    with open(audio_path,"wb") as f:
-        f.write(await file.read())
+    # 🎯 1. Ajouter tâche
+    if "ajoute une tâche" in user_msg:
 
-    text = transcribe(audio_path)
+        content = req.message.replace("ajoute une tâche", "").strip()
 
-    reply = ask_mistral(text, PERSONALITY)
+        task = add_task(content, content)
 
-    return JSONResponse({
-        "transcript": text,
-        "response": reply
-    })
+        return {
+            "response": f"Tâche ajoutée : {task['title']}"
+        }
+
+    # ⚙️ 2. Exécuter tâches
+    elif "exécute les tâches" in user_msg:
+
+        tasks = load_tasks()
+
+        results = execute_tasks(tasks, PERSONALITY)
+
+        save_tasks(tasks)
+
+        return {
+            "response": results
+        }
+
+    # 📋 3. Voir tâches
+    elif "liste des tâches" in user_msg:
+
+        tasks = load_tasks()
+
+        return {
+            "response": tasks
+        }
+
+    # 💬 4. Chat normal
+    else:
+
+        reply = ask_mistral(req.message, PERSONALITY)
+
+        return {
+            "response": reply
+        }
 
 
 @app.get("/")
 def home():
-    return {"status":"AI voice assistant running"}
+    return {"status":"AI server running"}
