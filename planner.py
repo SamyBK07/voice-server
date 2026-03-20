@@ -1,28 +1,18 @@
-from mistral import ask_mistral
+import time
 
-def execute_tasks(tasks, personality):
+last_user_time = time.time()
 
-    results = []
+def update_user_activity():
+    global last_user_time
+    last_user_time = time.time()
 
-    for task in tasks:
+def should_trigger_proactive(context):
+    now = time.time()
 
-        if task["status"] == "pending":
+    silence = now - last_user_time
 
-            prompt = f"""
-Exécute cette tâche :
+    # événement silence
+    if silence > 20:
+        return True
 
-Titre: {task['title']}
-Description: {task['description']}
-"""
-
-            result = ask_mistral(prompt, personality)
-
-            task["status"] = "done"
-            task["result"] = result
-
-            results.append({
-                "task": task["title"],
-                "result": result
-            })
-
-    return results
+    return False
