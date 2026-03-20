@@ -1,44 +1,28 @@
-import json
-
 from mistral import ask_mistral
-from tasks import load_tasks, save_tasks
 
+def execute_tasks(tasks, personality):
 
-def generate_tasks(personality):
+    results = []
 
-    tasks = load_tasks()
+    for task in tasks:
 
-    prompt = f"""
-Tu es un agent autonome.
+        if task["status"] == "pending":
 
-Tâches actuelles:
-{tasks}
+            prompt = f"""
+Exécute cette tâche :
 
-Si aucune tâche n'existe, crée entre 1 et 3 tâches utiles.
-
-Réponds uniquement en JSON:
-
-[
-{{"title":"...","description":"..."}}
-]
+Titre: {task['title']}
+Description: {task['description']}
 """
 
-    result = ask_mistral(prompt, personality)
+            result = ask_mistral(prompt, personality)
 
-    try:
+            task["status"] = "done"
+            task["result"] = result
 
-        new_tasks = json.loads(result)
-
-        for t in new_tasks:
-
-            tasks.append({
-                "id":len(tasks)+1,
-                "title":t["title"],
-                "description":t["description"],
-                "status":"pending"
+            results.append({
+                "task": task["title"],
+                "result": result
             })
 
-        save_tasks(tasks)
-
-    except:
-        pass
+    return results
