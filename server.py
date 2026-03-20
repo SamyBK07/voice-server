@@ -1,69 +1,42 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
-
+from flask import Flask, request
+from flask_socketio import SocketIO
+from planner import update_user_activity
 from mistral import ask_mistral
-from tasks import add_task, load_tasks, save_tasks
-from planner import execute_tasks
 
-app = FastAPI()
+app = Flask(__name__)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
-# Charger personnalité
-with open("personality.txt","r",encoding="utf-8") as f:
-    PERSONALITY = f.read()
+clients = []
 
+@socketio.on('connect')
+def handle_connect():
+    clients.append(request.sid)
 
-class ChatRequest(BaseModel):
-    message: str
+def send_to_clients(message):
+    for client in clients:
+        socketio.emit("message", message, room=client)
 
+context_memory = []
 
-@app.post("/chat")
-def chat(req: ChatRequest):
+def get_context():
+    return context_memory[-10:]
 
-    user_msg = req.message.lower()
+@app.route("/message", methods=["POST"])
+def receive_message():
+    data = request.json
+    text = data.get("text")
 
-    # 🎯 1. Ajouter tâche
-    if "ajoute une tâche" in user_msg:
+    update_user_activity()
 
-        content = req.message.replace("ajoute une tâche", "").strip()
+    context_memory.append({"user": text})
 
-        task = add_task(content, content)
+    response = ask_mistral(context_memory)
 
-        return {
-            "response": f"Tâche ajoutée : {task['title']}"
-        }
+    context_memory.append({"assistant": response})
 
-    # ⚙️ 2. Exécuter tâches
-    elif "exécute les tâches" in user_msg:
+    send_to_clients(response)
 
-        tasks = load_tasks()
+    return {"response": response}
 
-        results = execute_tasks(tasks, PERSONALITY)
-
-        save_tasks(tasks)
-
-        return {
-            "response": results
-        }
-
-    # 📋 3. Voir tâches
-    elif "liste des tâches" in user_msg:
-
-        tasks = load_tasks()
-
-        return {
-            "response": tasks
-        }
-
-    # 💬 4. Chat normal
-    else:
-
-        reply = ask_mistral(req.message, PERSONALITY)
-
-        return {
-            "response": reply
-        }
-
-
-@app.get("/")
-def home():
-    return {"status":"AI server running"}
+if __name__ == "__main__":
+    socketio.run(app, host="0.0.0.0", port=5000)
