@@ -1,58 +1,20 @@
-import requests
-import json
-import os
+def ask_mistral(context, proactive=False):
 
-MISTRAL_API_KEY = os.getenv("PD85t8aUMKTkZGDlAWhOWyxywwYRkSq1")
+    if proactive:
+        system_prompt = """
+Comporte toi comme Jarvis.
 
-MEMORY_FILE = "memory.json"
+Tu peux initier la conversation MAIS seulement si c'est pertinent.
 
-def load_memory():
+Si tu n'as rien d'intéressant à dire :
+réponds STRICTEMENT par : SILENCE
+"""
+    else:
+        system_prompt = "Tu réponds normalement."
 
-    try:
-        with open(MEMORY_FILE,"r") as f:
-            return json.load(f)
-    except:
-        return []
+    response = call_mistral_api(system_prompt, context)
 
-def save_memory(memory):
+    if "SILENCE" in response:
+        return None
 
-    with open(MEMORY_FILE,"w") as f:
-        json.dump(memory,f)
-
-def ask_mistral(user_text, personality):
-
-    memory = load_memory()
-
-    messages = [{"role":"system","content":personality}]
-
-    messages += memory
-
-    messages.append({
-        "role":"user",
-        "content":user_text
-    })
-
-    response = requests.post(
-        "https://api.mistral.ai/v1/chat/completions",
-        headers={
-            "Authorization":f"Bearer {MISTRAL_API_KEY}",
-            "Content-Type":"application/json"
-        },
-        json={
-            "model":"mistral-small",
-            "messages":messages
-        }
-    )
-
-    data = response.json()
-
-    reply = data["choices"][0]["message"]["content"]
-
-    memory.append({"role":"user","content":user_text})
-    memory.append({"role":"assistant","content":reply})
-
-    memory = memory[-10:]   # limite mémoire
-
-    save_memory(memory)
-
-    return reply
+    return response.strip()
