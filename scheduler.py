@@ -1,23 +1,30 @@
 import time
+from planner import should_trigger_proactive
+from mistral import ask_mistral
+from server import send_to_clients, get_context
 
-from tasks import load_tasks
-from planner import generate_tasks
+COOLDOWN = 30
+last_speak = 0
 
-
-def agent_loop(personality):
+def loop():
+    global last_speak
 
     while True:
+        time.sleep(5)
 
-        tasks = load_tasks()
+        context = get_context()
 
-        if len(tasks) == 0:
+        # cooldown
+        if time.time() - last_speak < COOLDOWN:
+            continue
 
-            print("No tasks → generating")
+        decision = should_trigger_proactive(context)
 
-            generate_tasks(personality)
+        if not decision:
+            continue
 
-        else:
+        response = ask_mistral(context, proactive=True)
 
-            print("Tasks exist:", len(tasks))
-
-        time.sleep(300)
+        if response:
+            send_to_clients(response)
+            last_speak = time.time()
